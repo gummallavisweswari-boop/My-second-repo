@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Single‑File Dashboard</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0f1724; /* dark navy */
+      --card:#0b1220;
+      --muted:#9aa4b2;
+      --accent:#6ee7b7;
+      --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+      --glass-border: rgba(255,255,255,0.04);
+      color-scheme: dark;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,var(--bg),#071021 120%);
+      color:#e6eef6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      font-size:14px;
+    }
+
+    /* Layout */
+    .app{display:grid;grid-template-columns:260px 1fr;gap:24px;min-height:100vh;padding:22px}
+    .sidebar{background:linear-gradient(180deg,var(--card),#081223);border:1px solid var(--glass-border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#2dd4bf);display:grid;place-items:center;font-weight:800;color:#062020}
+    .brand h1{font-size:16px;margin:0}
+    .nav{display:flex;flex-direction:column;gap:6px}
+    .nav a{display:flex;gap:10px;align-items:center;padding:10px;border-radius:8px;color:var(--muted);text-decoration:none}
+    .nav a.active, .nav a:hover{background:var(--glass);color:inherit}
+
+    .profile{margin-top:auto;display:flex;gap:12px;align-items:center}
+    .avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(180deg,#13313b,#052227);display:grid;place-items:center}
+
+    /* Main */
+    .main{display:flex;flex-direction:column;gap:18px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .search{flex:1;display:flex;gap:8px;align-items:center;background:var(--glass);padding:10px;border-radius:10px;border:1px solid var(--glass-border)}
+    .search input{background:transparent;border:0;outline:none;color:inherit;width:100%}
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{background:transparent;padding:8px 12px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,#0ea5a4,#34d399);color:#022; border:0}
+
+    /* Grid */
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .card{background:linear-gradient(180deg,var(--card),#06111b);border:1px solid var(--glass-border);border-radius:12px;padding:14px}
+    .card h3{margin:0;font-size:13px;color:var(--muted)}
+    .metric{font-size:22px;font-weight:700;margin-top:8px}
+
+    /* Wide elements */
+    .chart-card{grid-column:span 2}
+    .table-card{height:300px;overflow:auto}
+
+    /* small screens */
+    @media (max-width:900px){
+      .app{grid-template-columns:1fr;padding:14px}
+      .grid{grid-template-columns:repeat(1,1fr)}
+      .chart-card{grid-column:auto}
+      .sidebar{flex-direction:row;align-items:center;padding:10px;border-radius:10px}
+      .profile{display:none}
+    }
+
+    /* tiny helpers */
+    .flex{display:flex;gap:12px;align-items:center}
+    .chip{padding:6px 10px;border-radius:999px;background:var(--glass)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03)}
+    th{color:var(--muted);font-weight:600;font-size:12px}
+
+    footer.note{font-size:12px;color:var(--muted);opacity:0.9}
+
+    /* subtle animations */
+    .fade-up{transform:translateY(6px);opacity:0;animation:up .45s forwards}
+    @keyframes up{to{transform:none;opacity:1}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar fade-up" style="animation-delay:.05s">
+      <div class="brand">
+        <div class="logo">DA</div>
+        <div>
+          <h1>Dash.AI</h1>
+          <div style="font-size:12px;color:var(--muted)">Single-file interactive dashboard</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="#" class="active">Overview</a>
+        <a href="#">Analytics</a>
+        <a href="#">Customers</a>
+        <a href="#">Settings</a>
+      </nav>
+
+      <div class="chip">Last sync: <strong style="margin-left:6px">{--} 2m ago</strong></div>
+
+      <div class="profile">
+        <div class="avatar">VG</div>
+        <div>
+          <div style="font-weight:700">Visweswari</div>
+          <div style="font-size:12px;color:var(--muted)">Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar fade-up" style="animation-delay:.12s">
+        <div class="search">
+          <svg width="18" viewBox="0 0 24 24" fill="none" style="opacity:.7"><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6"></circle></svg>
+          <input id="q" placeholder="Search datasets, users, actions..." />
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="refreshBtn">Refresh</button>
+          <button class="btn primary" id="downloadCsv">Export CSV</button>
+          <button class="btn" id="toggleTheme">Toggle Theme</button>
+        </div>
+      </div>
+
+      <section class="grid">
+        <div class="card fade-up">
+          <h3>Total Revenue</h3>
+          <div class="metric" id="revenue">$42,540</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">Monthly revenue • <strong style="color:var(--accent);">+8.2%</strong></div>
+        </div>
+
+        <div class="card fade-up">
+          <h3>Active Users</h3>
+          <div class="metric" id="activeUsers">4,128</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">Last 30 days • <strong style="color:#7dd3fc">+3.4%</strong></div>
+        </div>
+
+        <div class="card fade-up">
+          <h3>Conversion Rate</h3>
+          <div class="metric" id="conv">3.8%</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">Trial → Paid • <strong style="color:#fca5a5">-0.4%</strong></div>
+        </div>
+
+        <div class="card chart-card fade-up">
+          <h3>Revenue Overview</h3>
+          <canvas id="revenueChart" height="140"></canvas>
+        </div>
+
+        <div class="card fade-up table-card">
+          <h3>Top Customers</h3>
+          <table id="customers">
+            <thead>
+              <tr><th>Customer</th><th>Plan</th><th>MRR</th><th>Last Active</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card fade-up">
+          <h3>Quick Actions</h3>
+          <div style="margin-top:10px" class="flex">
+            <button class="btn" onclick="simulateSale()">Simulate Sale</button>
+            <button class="btn" onclick="addRandomUser()">Add Random User</button>
+          </div>
+          <div style="margin-top:12px;color:var(--muted);font-size:13px">These actions update the charts and tables locally for demo purposes.</div>
+        </div>
+
+      </section>
+
+      <footer class="note">Built as a single HTML file • Save as <code>dashboard.html</code> and open in any modern browser.</footer>
+    </main>
+  </div>
+
+  <script>
+    // --- Demo dataset ---
+    const dataset = {
+      revenue: [5200, 4800, 5600, 6000, 7200, 6800, 7100, 7400, 7800, 8200, 8700, 9250].slice(),
+      months: ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'],
+      customers: [
+        {name:'Acme Co', plan:'Enterprise', mrr:2400, last:'2025-09-12'},
+        {name:'Bright Ltd', plan:'Pro', mrr:560, last:'2025-09-14'},
+        {name:'Crafts Inc', plan:'Starter', mrr:120, last:'2025-09-10'},
+        {name:'Digiwave', plan:'Pro', mrr:920, last:'2025-09-16'},
+      ]
+    };
+
+    // --- Charts setup ---
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    const revenueChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dataset.months,
+        datasets: [{
+          label: 'Revenue',
+          data: dataset.revenue,
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          backgroundColor: 'rgba(110,231,183,0.08)',
+          borderColor: 'rgba(110,231,183,0.9)',
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false}},
+          y:{grid:{color:'rgba(255,255,255,0.03)'}}
+        }
+      }
+    });
+
+    // populate customers table
+    function renderCustomers(){
+      const tbody = document.querySelector('#customers tbody');
+      tbody.innerHTML = '';
+      dataset.customers.forEach(c=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${c.name}</td><td>${c.plan}</td><td>$${c.mrr}</td><td>${c.last}</td>`;
+        tbody.appendChild(tr);
+      })
+    }
+    renderCustomers();
+
+    // wire up metrics
+    function updateMetrics(){
+      const total = dataset.revenue.reduce((a,b)=>a+b,0);
+      document.getElementById('revenue').textContent = '$' + total.toLocaleString();
+      document.getElementById('activeUsers').textContent = Math.max(1200, Math.round(total/10)).toLocaleString();
+      document.getElementById('conv').textContent = ( (Math.random()*1.3 + 3.0).toFixed(1) ) + '%';
+    }
+    updateMetrics();
+
+    // simulate a sale: push to revenue & update chart
+    function simulateSale(){
+      const last = dataset.revenue[dataset.revenue.length-1];
+      const bump = Math.round(Math.random()*700 + 300);
+      dataset.revenue.push(last + bump);
+      dataset.months.push('...' );
+      revenueChart.data.labels = dataset.months.slice(-12);
+      revenueChart.data.datasets[0].data = dataset.revenue.slice(-12);
+      revenueChart.update();
+      updateMetrics();
+      flash('.card.primary');
+    }
+
+    // add random user (demo)
+    function addRandomUser(){
+      const names = ['Nova Labs','Orion LLC','Pioneer','Stellar','Brightbyte'];
+      const rand = names[Math.floor(Math.random()*names.length)];
+      dataset.customers.unshift({name:rand,plan:['Starter','Pro','Enterprise'][Math.floor(Math.random()*3)],mrr:Math.round(Math.random()*1200),last:'2025-09-17'});
+      if(dataset.customers.length>12) dataset.customers.pop();
+      renderCustomers();
+    }
+
+    // export table to CSV
+    function tableToCSV(){
+      const rows = document.querySelectorAll('#customers tr');
+      const csv = Array.from(rows).map(r=>{
+        return Array.from(r.querySelectorAll('th,td')).map(cell=>`"${cell.innerText.replace(/"/g,'""')}"`).join(',');
+      }).join('\n');
+      return csv;
+    }
+
+    document.getElementById('downloadCsv').addEventListener('click', ()=>{
+      const csv = tableToCSV();
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'customers.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // refresh button (recomputes metrics and re-renders demo info)
+    document.getElementById('refreshBtn').addEventListener('click', ()=>{
+      // tiny random mutation for demo
+      for(let i=0;i<dataset.revenue.length;i++) dataset.revenue[i] = Math.max(200, Math.round(dataset.revenue[i] * (0.98 + Math.random()*0.06)));
+      revenueChart.data.datasets[0].data = dataset.revenue.slice(-12);
+      revenueChart.update();
+      updateMetrics();
+    });
+
+    // theme toggle: simple light/dark swap by inverting colors
+    let isLight = false;
+    document.getElementById('toggleTheme').addEventListener('click', ()=>{
+      isLight = !isLight;
+      if(isLight){
+        document.documentElement.style.setProperty('--bg','#f3f7fb');
+        document.documentElement.style.setProperty('--card','#ffffff');
+        document.documentElement.style.setProperty('--muted','#566170');
+        document.documentElement.style.setProperty('--accent','#06b6d4');
+        document.documentElement.style.color = '#06202a';
+      } else {
+        document.documentElement.style.setProperty('--bg','#0f1724');
+        document.documentElement.style.setProperty('--card','#0b1220');
+        document.documentElement.style.setProperty('--muted','#9aa4b2');
+        document.documentElement.style.setProperty('--accent','#6ee7b7');
+        document.documentElement.style.color = '';
+      }
+    });
+
+    // tiny helper
+    function flash(sel){
+      // placeholder for potential highlight animations
+    }
+
+    // search filter for customers
+    document.getElementById('q').addEventListener('input', (e)=>{
+      const q = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('#customers tbody tr');
+      rows.forEach(r=>{
+        const txt = r.innerText.toLowerCase();
+        r.style.display = txt.includes(q) ? '' : 'none';
+      });
+    });
+
+    // initial small responsive tweak
+    window.addEventListener('load', ()=>{
+      // ensure chart fits initial container
+      revenueChart.resize();
+    });
+  </script>
+</body>
+</html>
